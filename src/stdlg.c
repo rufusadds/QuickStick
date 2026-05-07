@@ -58,11 +58,13 @@ static struct {
 	char **szDialogItem;
 	int nDialogItems;
 } list_data = { 0 };
+// The selection dialog can be re-entered so we need two data instances + an index
 static struct {
 	char* szMessageText;
 	char* szMessageTitle;
 	selection_dialog_options_t* options;
-} selection_data = { 0 };
+} selection_data[2] = { 0 };
+static int s = -1;
 static struct {
 	HICON hMessageIcon;
 	char* szMessageText;
@@ -846,22 +848,20 @@ static INT_PTR CALLBACK SelectionCallback(HWND hDlg, UINT message, WPARAM wParam
 	// https://learn.microsoft.com/en-us/previous-versions/cc722458(v=technet.10)#user-name-policies
 	static const char* username_invalid_chars = "/\\[]:;|=,+*?<>\"";
 	// Prevent resizing
-	static LRESULT disabled[9] = { HTLEFT, HTRIGHT, HTTOP, HTBOTTOM, HTSIZE,
+	static const LRESULT disabled[9] = { HTLEFT, HTRIGHT, HTTOP, HTBOTTOM, HTSIZE,
 		HTTOPLEFT, HTTOPRIGHT, HTBOTTOMLEFT, HTBOTTOMRIGHT };
-	static HBRUSH background_brush, separator_brush;
 	static HFONT hDlgFont = NULL;
-	static BOOL silent_install_checked = FALSE;
 	char username[128] = { 0 }, str[MAX_PATH];
 	int i, m, dw, dh, r = -1, mw;
 	DWORD size = sizeof(username);
 	LRESULT loc;
-	// To use the system message font
-	NONCLIENTMETRICS ncm;
+	NONCLIENTMETRICS ncm;	// To use the system message font
 	RECT rc, rc2;
 	HWND hCtrl;
 	HDC hDC;
-	assert(selection_data.options != NULL);
-	int nDialogItems = selection_data.options->choices.Index;
+	assert(s < ARRAYSIZE(selection_data));
+	assert(selection_data[s].options != NULL);
+	int nDialogItems = selection_data[s].options->choices.Index;
 
 	switch (message) {
 	case WM_INITDIALOG:
@@ -877,7 +877,7 @@ static INT_PTR CALLBACK SelectionCallback(HWND hDlg, UINT message, WPARAM wParam
 		}
 		// Switch to checkboxes or some other style if requested
 		for (i = 0; i < nDialogItems; i++)
-			Button_SetStyle(GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + i), selection_data.options->style, TRUE);
+			Button_SetStyle(GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + i), selection_data[s].options->style, TRUE);
 		// Get the system message box font. See http://stackoverflow.com/a/6057761
 		if (hDlgFont == NULL) {
 			ncm.cbSize = sizeof(ncm);
@@ -893,8 +893,6 @@ static INT_PTR CALLBACK SelectionCallback(HWND hDlg, UINT message, WPARAM wParam
 		SendMessage(GetDlgItem(hDlg, IDNO), WM_SETFONT, (WPARAM)hDlgFont, MAKELPARAM(TRUE, 0));
 
 		apply_localization(IDD_SELECTION, hDlg);
-		background_brush = GetSysColorBrush(COLOR_WINDOW);
-		separator_brush = GetSysColorBrush(COLOR_3DLIGHT);
 		SetTitleBarIcon(hDlg);
 		CenterDialog(hDlg, NULL);
 
@@ -904,31 +902,33 @@ static INT_PTR CALLBACK SelectionCallback(HWND hDlg, UINT message, WPARAM wParam
 		mw = rc.right - rc.left - ddw;	// ddw seems to work okay as a fudge
 		dw = mw;
 
-		r = GetEditions(&edition_name, &edition_index);
+		// NB: GetEdition() may cause SelectionDialog() to be re-entered!
+		if (selection_data[s].options->edition_index > 0)
+			r = GetEditions(&edition_name, &edition_index);
 
 		// Change the default icon and set the text
 		Static_SetIcon(GetDlgItem(hDlg, IDC_SELECTION_ICON), LoadIcon(NULL, IDI_QUESTION));
-		SetWindowTextU(hDlg, selection_data.szMessageTitle);
+		SetWindowTextU(hDlg, selection_data[s].szMessageTitle);
 		SetWindowTextU(GetDlgItem(hDlg, IDCANCEL), lmprintf(MSG_007));
-		SetWindowTextU(GetDlgItem(hDlg, IDC_SELECTION_TEXT), selection_data.szMessageText);
+		SetWindowTextU(GetDlgItem(hDlg, IDC_SELECTION_TEXT), selection_data[s].szMessageText);
 		for (i = 0; i < nDialogItems; i++) {
 			hCtrl = GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + i);
-			static_strcpy(str, selection_data.options->choices.String[i]);
+			static_strcpy(str, selection_data[s].options->choices.String[i]);
 			SetWindowTextU(hCtrl, str);
 			ShowWindow(hCtrl, SW_SHOW);
 			// Compute the maximum line's width (with some extra for the username and edition fields)
-			if (i == selection_data.options->username_index - 1) {
-				static_sprintf(str, "%s __%s__", selection_data.options->choices.String[i], base_username);
+			if (i == selection_data[s].options->username_index - 1) {
+				static_sprintf(str, "%s __%s__", selection_data[s].options->choices.String[i], base_username);
 				mw = max(mw, GetTextSize(hCtrl, str).cx);
-			} else if (i == selection_data.options->edition_index - 1) {
+			} else if (i == selection_data[s].options->edition_index - 1) {
 				mw = max(mw, GetTextSize(hCtrl, str).cx +
 					GetComboBoxMinWidth(GetDlgItem(hDlg, IDC_SELECTION_EDITION), &edition_name));
 			} else {
 				mw = max(mw, GetTextSize(hCtrl, str).cx);
 			}
 			// Set tooltips, if any
-			if (i < (int)selection_data.options->tooltips.Index)
-				CreateTooltipEx(hDlg, hCtrl, selection_data.options->tooltips.String[i], -1);
+			if (i < (int)selection_data[s].options->tooltips.Index)
+				CreateTooltipEx(hDlg, hCtrl, selection_data[s].options->tooltips.String[i], -1);
 		}
 		// If our maximum line's width is greater than the default, set a nonzero delta width
 		dw = (mw <= dw) ? 0 : mw - dw;
@@ -939,7 +939,7 @@ static INT_PTR CALLBACK SelectionCallback(HWND hDlg, UINT message, WPARAM wParam
 		SelectFont(hDC, hDlgFont);	// Yes, you *MUST* reapply the font to the DC, even after SetWindowText!
 		GetWindowRect(hCtrl, &rc);
 		dh = rc.bottom - rc.top;
-		DrawTextU(hDC, selection_data.szMessageText, -1, &rc, DT_CALCRECT | DT_WORDBREAK);
+		DrawTextU(hDC, selection_data[s].szMessageText, -1, &rc, DT_CALCRECT | DT_WORDBREAK);
 		dh = rc.bottom - rc.top - dh;
 		safe_release_dc(hCtrl, hDC);
 		ResizeMoveCtrl(hDlg, hCtrl, 0, 0, 0, dh, 1.0f);
@@ -947,12 +947,12 @@ static INT_PTR CALLBACK SelectionCallback(HWND hDlg, UINT message, WPARAM wParam
 			ResizeMoveCtrl(hDlg, GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + i), 0, dh, dw, 0, 1.0f);
 
 		// If required, set up the the username edit box
-		if (selection_data.options->username_index > 0) {
+		if (selection_data[s].options->username_index > 0) {
 			unattend_username[0] = 0;
-			hCtrl = GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + selection_data.options->username_index - 1);
+			hCtrl = GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + selection_data[s].options->username_index - 1);
 			GetClientRect(hCtrl, &rc);
 			ResizeMoveCtrl(hDlg, hCtrl, 0, 0,
-				(rc.left - rc.right) + GetTextSize(hCtrl, selection_data.options->choices.String[selection_data.options->username_index - 1]).cx + ddw, 0, 1.0f);
+				(rc.left - rc.right) + GetTextSize(hCtrl, selection_data[s].options->choices.String[selection_data[s].options->username_index - 1]).cx + ddw, 0, 1.0f);
 			GetWindowRect(hCtrl, &rc);
 			SetWindowPos(GetDlgItem(hDlg, IDC_SELECTION_USERNAME), hCtrl, rc.left, rc.top, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 			hCtrl = GetDlgItem(hDlg, IDC_SELECTION_USERNAME);
@@ -966,11 +966,11 @@ static INT_PTR CALLBACK SelectionCallback(HWND hDlg, UINT message, WPARAM wParam
 		}
 
 		// If required, set up the the edition combo box
-		if (selection_data.options->edition_index > 0 && edition_name.String != NULL && edition_name.Index > 0) {
-			hCtrl = GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + selection_data.options->edition_index - 1);
+		if (selection_data[s].options->edition_index > 0 && edition_name.String != NULL && edition_name.Index > 0) {
+			hCtrl = GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + selection_data[s].options->edition_index - 1);
 			GetClientRect(hCtrl, &rc);
 			ResizeMoveCtrl(hDlg, hCtrl, 0, 0,
-				(rc.left - rc.right) + GetTextSize(hCtrl, selection_data.options->choices.String[selection_data.options->edition_index - 1]).cx + ddw, 0, 1.0f);
+				(rc.left - rc.right) + GetTextSize(hCtrl, selection_data[s].options->choices.String[selection_data[s].options->edition_index - 1]).cx + ddw, 0, 1.0f);
 			GetWindowRect(hCtrl, &rc);
 			SetWindowPos(GetDlgItem(hDlg, IDC_SELECTION_EDITION), hCtrl, rc.left, rc.top, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 			hCtrl = GetDlgItem(hDlg, IDC_SELECTION_EDITION);
@@ -1002,16 +1002,16 @@ static INT_PTR CALLBACK SelectionCallback(HWND hDlg, UINT message, WPARAM wParam
 		// Set the default selection
 		for (i = 0, m = 1; i < nDialogItems; i++, m <<= 1)
 			Button_SetCheck(GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + i),
-				(selection_data.options->style == BS_AUTORADIOBUTTON && selection_data.options->mask == 0 && i == 0) ||
-				(selection_data.options->mask != 0 && (m & selection_data.options->mask) ? BST_CHECKED : BST_UNCHECKED));
+				(selection_data[s].options->style == BS_AUTORADIOBUTTON && selection_data[s].options->mask == 0 && i == 0) ||
+				(selection_data[s].options->mask != 0 && (m & selection_data[s].options->mask) ? BST_CHECKED : BST_UNCHECKED));
 		// Set the default state of the silent install option if available
-		if (selection_data.options->edition_index > 0 && selection_data.options->username_index > 0 &&
-			selection_data.options->regional_index > 0 && selection_data.options->privacy_index > 0) {
+		if (selection_data[s].options->edition_index > 0 && selection_data[s].options->username_index > 0 &&
+			selection_data[s].options->regional_index > 0 && selection_data[s].options->privacy_index > 0) {
 			// Should be the same condition as the one in WM_COMMAND
-			BOOL enable = Button_GetCheck(GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + selection_data.options->username_index - 1)) &&
-				Button_GetCheck(GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + selection_data.options->regional_index - 1)) &&
-				Button_GetCheck(GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + selection_data.options->privacy_index - 1));
-			EnableWindow(GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + selection_data.options->edition_index - 1), enable);
+			BOOL enable = Button_GetCheck(GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + selection_data[s].options->username_index - 1)) &&
+				Button_GetCheck(GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + selection_data[s].options->regional_index - 1)) &&
+				Button_GetCheck(GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + selection_data[s].options->privacy_index - 1));
+			EnableWindow(GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + selection_data[s].options->edition_index - 1), enable);
 			EnableWindow(GetDlgItem(hDlg, IDC_SELECTION_EDITION), enable);
 		}
 
@@ -1022,35 +1022,35 @@ static INT_PTR CALLBACK SelectionCallback(HWND hDlg, UINT message, WPARAM wParam
 	case WM_CTLCOLORSTATIC:
 		// Change the background colour for static text and icon
 		SetBkMode((HDC)wParam, TRANSPARENT);
-		if ((HWND)lParam == GetDlgItem(hDlg, IDC_NOTIFICATION_LINE)) {
-			return (INT_PTR)separator_brush;
-		}
-		return (INT_PTR)background_brush;
+		if ((HWND)lParam == GetDlgItem(hDlg, IDC_NOTIFICATION_LINE))
+			return (INT_PTR)GetSysColorBrush(COLOR_3DLIGHT);
+		return (INT_PTR)GetSysColorBrush(COLOR_WINDOW);
 	case WM_NCHITTEST:
 		// Check coordinates to prevent resize actions
 		loc = DefWindowProc(hDlg, message, wParam, lParam);
 		for (i = 0; i < 9; i++) {
-			if (loc == disabled[i]) {
+			if (loc == disabled[i])
 				return (INT_PTR)TRUE;
-			}
 		}
 		return (INT_PTR)FALSE;
 	case WM_NCDESTROY:
-		safe_delete_object(hDlgFont);
+		if (s == 0)
+			safe_delete_object(hDlgFont);
 		break;
 	case WM_COMMAND:
+		BOOL silent_install_checked = FALSE;
 		WORD command = LOWORD(wParam);
 		if (command >= IDC_SELECTION_CHOICE1 && command < IDC_SELECTION_CHOICEMAX) {
 			// Check if local account + regional settings + data collection checkboxes are clicked and enable/disable the silent install option
-			if (selection_data.options->edition_index > 0 && selection_data.options->username_index > 0 &&
-				selection_data.options->edition_index > 0 && selection_data.options->regional_index > 0 &&
-					(command - IDC_SELECTION_CHOICE1 == selection_data.options->username_index - 1 ||
-					 command - IDC_SELECTION_CHOICE1 == selection_data.options->regional_index - 1 ||
-					 command - IDC_SELECTION_CHOICE1 == selection_data.options->privacy_index - 1)) {
-				BOOL enable = Button_GetCheck(GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + selection_data.options->username_index - 1)) &&
-					Button_GetCheck(GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + selection_data.options->regional_index - 1)) &&
-					Button_GetCheck(GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + selection_data.options->privacy_index - 1));
-				hCtrl = GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + selection_data.options->edition_index - 1);
+			if (selection_data[s].options->edition_index > 0 && selection_data[s].options->username_index > 0 &&
+				selection_data[s].options->edition_index > 0 && selection_data[s].options->regional_index > 0 &&
+					(command - IDC_SELECTION_CHOICE1 == selection_data[s].options->username_index - 1 ||
+					 command - IDC_SELECTION_CHOICE1 == selection_data[s].options->regional_index - 1 ||
+					 command - IDC_SELECTION_CHOICE1 == selection_data[s].options->privacy_index - 1)) {
+				BOOL enable = Button_GetCheck(GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + selection_data[s].options->username_index - 1)) &&
+					Button_GetCheck(GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + selection_data[s].options->regional_index - 1)) &&
+					Button_GetCheck(GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + selection_data[s].options->privacy_index - 1));
+				hCtrl = GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + selection_data[s].options->edition_index - 1);
 				if (!enable && IsWindowEnabled(hCtrl)) {
 					silent_install_checked = (Button_GetCheck(hCtrl) == BST_CHECKED);
 					Button_SetCheck(hCtrl, FALSE);
@@ -1063,14 +1063,14 @@ static INT_PTR CALLBACK SelectionCallback(HWND hDlg, UINT message, WPARAM wParam
 		} else switch (LOWORD(wParam)) {
 		case IDOK:
 			// Produce a big scary warning if the silent install option was selected
-			if (selection_data.options->edition_index > 0 &&
-				Button_GetCheck(GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + selection_data.options->edition_index - 1)) &&
+			if (selection_data[s].options->edition_index > 0 &&
+				Button_GetCheck(GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + selection_data[s].options->edition_index - 1)) &&
 				Notification(MB_YESNO | MB_ICONWARNING, APPLICATION_NAME, lmprintf(MSG_356)) != IDYES)
 				break;
 			for (r = 0, i = 0, m = 1; i < nDialogItems; i++, m <<= 1)
 				if (Button_GetCheck(GetDlgItem(hDlg, IDC_SELECTION_CHOICE1 + i)) == BST_CHECKED)
 					r += m;
-			if (selection_data.options->username_index > 0) {
+			if (selection_data[s].options->username_index > 0) {
 				GetWindowTextU(GetDlgItem(hDlg, IDC_SELECTION_USERNAME), unattend_username, MAX_USERNAME_LENGTH);
 				// Perform string sanitization (NB: GetWindowTextU always terminates the string)
 				for (i = 0; unattend_username[i] != 0; i++) {
@@ -1080,7 +1080,7 @@ static INT_PTR CALLBACK SelectionCallback(HWND hDlg, UINT message, WPARAM wParam
 				// Also remove leading and trailing whitespaces (https://github.com/pbatard/rufus/issues/2950)
 				trim(unattend_username);
 			}
-			if (selection_data.options->edition_index > 0)
+			if (selection_data[s].options->edition_index > 0)
 				unattend_edition_index = (int)ComboBox_GetCurItemData(GetDlgItem(hDlg, IDC_SELECTION_EDITION));
 			// Fall through
 		case IDNO:
@@ -1125,15 +1125,17 @@ int SelectionDialog(char* title, char* message, selection_dialog_options_t* opti
 
 	assert(options != NULL);
 	dialog_showing++;
-	selection_data.szMessageTitle = title;
-	selection_data.szMessageText = message;
-	selection_data.options = options;
+	s++;
+	selection_data[s].szMessageTitle = title;
+	selection_data[s].szMessageText = message;
+	selection_data[s].options = options;
 	if (options->style == 0)
 		options->style = BS_AUTORADIOBUTTON;
 	assert ((options->style == BS_AUTORADIOBUTTON || options->style == BS_AUTOCHECKBOX));
 	hook = SetWindowsHookEx(WH_MOUSE, SelectionTooltipPopper, NULL, GetCurrentThreadId());
 	ret = (int)MyDialogBox(hMainInstance, IDD_SELECTION, hMainDialog, SelectionCallback);
 	UnhookWindowsHookEx(hook);
+	s--;
 	dialog_showing--;
 
 	return ret;
