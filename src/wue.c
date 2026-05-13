@@ -443,6 +443,10 @@ char* CreateUnattendXml(int arch, int flags)
 					"-Name 'VisiblePlaces' -Value $([convert]::FromBase64String('ztU0LVr6Q0WC8iLm6vd3PC+zZ+PeiVVDv85h83sYqTe8JIo"
 					"UDNaJQqCAbtm7okiCRIF1/g0IrkKL2jTtl7ZjlEqwvXRK+WhPi9ZDmAcdqLyGCHNSqlFDQp97J3ZYRlnU')) -Type 'Binary'\"", TRUE);
 			}
+			if (flags & UNATTEND_ENABLE_ADMIN) {
+				uprintf("• Enable built-in Administrator account");
+				StrArrayAdd(&commands, "net user Administrator /active:yes", TRUE);
+			}
 			// Now that we have all the commands to run, create the FirstLogonCommands section.
 			for (order = 1; order <= (int)commands.Index; order++) {
 				if (order == 1)

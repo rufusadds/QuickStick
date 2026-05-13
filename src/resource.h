@@ -612,7 +612,9 @@
 #define MSG_397                         3397
 #define MSG_398                         3398
 #define MSG_399                         3399
-#define MSG_MAX                         3400
+#define MSG_400                         3400
+#define MSG_401                         3401
+#define MSG_MAX                         3402
 
 // Next default values for new objects
 //

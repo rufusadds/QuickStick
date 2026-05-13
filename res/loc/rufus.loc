@@ -639,6 +639,8 @@ t MSG_368 "Use this option if the system you plan to install Windows on is using
 t MSG_369 "Use this option if you want to revoke additional potentially unsafe Windows bootloaders, but with the potential of also preventing standard Windows media from booting."
 t MSG_370 "\"Quality of Life\" enhancements: Disable most of the unwanted features Microsoft is trying to force onto end users."
 t MSG_371 "If you use this option, please make sure to disconnect every disk from the target PC, except the one you want to install Windows on, as well as not leave the media plugged into any PC you don't want to erase."
+t MSG_400 "Enable the built-in Administrator account"
+t MSG_401 "Activate the disabled built-in 'Administrator' account on first logon. Use with caution: this account has no password set by default and grants full elevated access to the system."
 
 # The following messages are for the Windows Store listing only and are not used by the application
 t MSG_900 "Rufus is a utility that helps format and create bootable USB flash drives, such as USB keys/pendrives, memory sticks, etc."

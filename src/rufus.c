@@ -1725,6 +1725,9 @@ static DWORD WINAPI BootCheckThread(LPVOID param)
 					StrArrayAdd(&selection.choices, lmprintf(MSG_324), TRUE);
 					StrArrayAdd(&selection.tooltips, lmprintf(MSG_370), TRUE);
 					MAP_BIT(UNATTEND_QOL_ENHANCEMENTS);
+					StrArrayAdd(&selection.choices, lmprintf(MSG_400), TRUE);
+					StrArrayAdd(&selection.tooltips, lmprintf(MSG_401), TRUE);
+					MAP_BIT(UNATTEND_ENABLE_ADMIN);
 					StrArrayAdd(&selection.choices, lmprintf(MSG_355), TRUE);
 					StrArrayAdd(&selection.tooltips, lmprintf(MSG_371), TRUE);
 					selection.edition_index = _log2(b) + 1;
