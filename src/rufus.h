@@ -69,6 +69,9 @@
 #define DRIVE_ACCESS_RETRIES        150			// How many times we should retry
 #define DRIVE_INDEX_MIN             0x00000080
 #define DRIVE_INDEX_MAX             0x000000C0
+// Sentinel index used by the QuickStick phantom test device, which lets you
+// reach the Windows User Experience dialog without a real USB drive plugged in.
+#define PHANTOM_DRIVE_INDEX         0x000000BF
 #define MIN_DRIVE_SIZE              (8 * MB)	// Minimum size a drive must have, to be formattable
 #define MIN_EXTRA_PART_SIZE         (1 * MB)	// Minimum size of the extra partition, in bytes
 #define MIN_EXT_SIZE                (256 * MB)	// Minimum size we allow for ext formatting

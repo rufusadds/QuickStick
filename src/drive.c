@@ -1880,6 +1880,23 @@ BOOL GetDrivePartitionData(DWORD DriveIndex, char* FileSystemName, DWORD FileSys
 	if (FileSystemName == NULL)
 		return FALSE;
 
+	// QuickStick phantom test device: populate SelectedDrive with plausible values
+	// for a 64 GB removable FAT32 USB stick so the rest of the UI flow can reach
+	// the Windows User Experience dialog without touching any real disk APIs.
+	if (DriveIndex == PHANTOM_DRIVE_INDEX) {
+		memset(&SelectedDrive.Partition, 0, sizeof(SelectedDrive.Partition));
+		SelectedDrive.DeviceNumber = PHANTOM_DRIVE_INDEX;
+		SelectedDrive.DiskSize = 64ULL * 1024 * 1024 * 1024;     // 64 GB
+		SelectedDrive.SectorSize = 512;
+		SelectedDrive.FirstDataSector = MAXDWORD;
+		SelectedDrive.MediaType = RemovableMedia;
+		SelectedDrive.PartitionStyle = PARTITION_STYLE_MBR;
+		SelectedDrive.nPartitions = 0;
+		suprintf("[TEST] Selected phantom drive (64 GB removable, FAT32, no disk APIs touched)");
+		safe_strcpy(FileSystemName, FileSystemNameSize, "FAT32");
+		return TRUE;
+	}
+
 	SelectedDrive.nPartitions = 0;
 	memset(SelectedDrive.Partition, 0, sizeof(SelectedDrive.Partition));
 	// Populate the filesystem data

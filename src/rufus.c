@@ -3093,6 +3093,28 @@ static INT_PTR CALLBACK MainCallback(HWND hDlg, UINT message, WPARAM wParam, LPA
 	case UM_FORMAT_START:
 		if (wParam != BOOTCHECK_PROCEED)
 			goto aborted_start;
+		// QuickStick phantom test device: the boot-check thread has already
+		// walked the entire pre-format pipeline (including showing the WUE
+		// customization dialog and generating an unattend.xml) without
+		// touching any real disk. Stop here and tell the user where the
+		// generated file is, so they can inspect it.
+		if (SelectedDrive.DeviceNumber == PHANTOM_DRIVE_INDEX) {
+			char msg[1024];
+			if (unattend_xml_path != NULL)
+				safe_sprintf(msg, sizeof(msg),
+					"Phantom test complete.\r\n\r\n"
+					"The unattend.xml that would have been written to a real drive is at:\r\n%s\r\n\r\n"
+					"No disk was modified.",
+					unattend_xml_path);
+			else
+				safe_sprintf(msg, sizeof(msg),
+					"Phantom test complete.\r\n\r\n"
+					"No unattend.xml was generated for this run.\r\n"
+					"(Load a Windows 11 ISO and click START again to exercise the WUE dialog.)\r\n\r\n"
+					"No disk was modified.");
+			Notification(MB_OK | MB_ICONINFORMATION, "QuickStick \xE2\x80\x94 Phantom test", msg);
+			goto aborted_start;
+		}
 		// All subsequent aborts below translate to a user cancellation
 		wParam = BOOTCHECK_CANCEL;
 		save_image = FALSE;

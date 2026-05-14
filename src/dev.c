@@ -1066,6 +1066,16 @@ BOOL GetDevices(DWORD devnum)
 		IGNORE_RETVAL(ComboBox_SetItemData(hDeviceList, ComboBox_AddStringU(hDeviceList, rufus_drive[u].display_name), rufus_drive[u].index));
 		maxwidth = max(maxwidth, GetEntryWidth(hDeviceList, rufus_drive[u].display_name));
 	}
+	// QuickStick: always append a phantom test device at the end of the device list.
+	// Selecting it lets the user reach the Windows User Experience customization
+	// dialog without a real USB drive plugged in. The format flow aborts safely
+	// after the WUE dialog returns; no disk is ever written.
+	{
+		const char* phantom_name = "[TEST] Phantom drive (no disk will be written) (64 GB)";
+		IGNORE_RETVAL(ComboBox_SetItemData(hDeviceList,
+			ComboBox_AddStringU(hDeviceList, phantom_name), PHANTOM_DRIVE_INDEX));
+		maxwidth = max(maxwidth, GetEntryWidth(hDeviceList, phantom_name));
+	}
 	// Adjust the Dropdown width to the maximum text size
 	SendMessage(hDeviceList, CB_SETDROPPEDWIDTH, (WPARAM)maxwidth, 0);
 
