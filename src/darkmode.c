@@ -301,13 +301,15 @@ static HBRUSH GetEdgeBrush(void)
 static HPEN GetEdgePen(void)
 {
 	if (theme_resources.hpnEdge == NULL)
-		theme_resources.hpnEdge = CreatePen(PS_SOLID, 1, DARKMODE_NORMAL_CONTROL_EDGE_COLOR);
+		// QuickStick: thicker neon border for stronger glow effect
+		theme_resources.hpnEdge = CreatePen(PS_SOLID, 2, DARKMODE_NORMAL_CONTROL_EDGE_COLOR);
 	return theme_resources.hpnEdge;
 }
 static HPEN GetHotEdgePen(void)
 {
 	if (theme_resources.hpnEdgeHot == NULL)
-		theme_resources.hpnEdgeHot = CreatePen(PS_SOLID, 1, DARKMODE_HOT_CONTROL_EDGE_COLOR);
+		// QuickStick: thicker neon border on hover
+		theme_resources.hpnEdgeHot = CreatePen(PS_SOLID, 2, DARKMODE_HOT_CONTROL_EDGE_COLOR);
 	return theme_resources.hpnEdgeHot;
 }
 
@@ -922,13 +924,48 @@ static void GetProgressBarRects(HWND hWnd, RECT* rcEmpty, RECT* rcFilled)
 static void PaintProgressBar(HWND hWnd, HDC hdc, ProgressBarData progressBarData)
 {
 	RECT rcClient = { 0 }, rcFill = { 0 };
+	HBRUSH hbrFill;
+	COLORREF fill_color;
+	HPEN hpnScan, hpnOld;
+	int y;
+	(void)progressBarData;
 
 	GetClientRect(hWnd, &rcClient);
 	PaintRoundFrameRect(hdc, rcClient, GetEdgePen(), 0, 0);
 	InflateRect(&rcClient, -1, -1);
 	rcClient.left = 1;
 	GetProgressBarRects(hWnd, &rcClient, &rcFill);
-	DrawThemeBackground(progressBarData.hTheme, hdc, PP_FILL, progressBarData.iStateID, &rcFill, NULL);
+
+	// QuickStick neon progress fill. Use the Windows theme state to pick a tone:
+	//   PBFS_NORMAL  -> neon green   (#39FF14)
+	//   PBFS_ERROR   -> neon red     (#FF1430)
+	//   PBFS_PAUSED  -> neon amber   (#FFB400)
+	switch (progressBarData.iStateID) {
+	case PBFS_ERROR:
+		fill_color = RGB(0xFF, 0x14, 0x30);
+		break;
+	case PBFS_PAUSED:
+		fill_color = RGB(0xFF, 0xB4, 0x00);
+		break;
+	default:
+		fill_color = DARKMODE_TOOLBAR_ICON_COLOR; // neon green
+		break;
+	}
+	hbrFill = CreateSolidBrush(fill_color);
+	FillRect(hdc, &rcFill, hbrFill);
+	DeleteObject(hbrFill);
+
+	// Overlay horizontal scanlines on the filled section for a CRT/neon feel.
+	hpnScan = CreatePen(PS_SOLID, 1, RGB(0x00, 0x00, 0x00));
+	hpnOld = (HPEN)SelectObject(hdc, hpnScan);
+	for (y = rcFill.top + 1; y < rcFill.bottom; y += 2) {
+		MoveToEx(hdc, rcFill.left, y, NULL);
+		LineTo(hdc, rcFill.right, y);
+	}
+	SelectObject(hdc, hpnOld);
+	DeleteObject(hpnScan);
+
+	// Unfilled portion stays the dialog/control background colour.
 	FillRect(hdc, &rcClient, GetCtrlBackgroundBrush());
 }
 
