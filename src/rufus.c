@@ -710,8 +710,15 @@ static void SetProposedLabel(int ComboIndex)
 		return;
 	}
 
+	// QuickStick: the phantom test device has no rufus_drive[] entry, so use
+	// the size-based proposed label and avoid dereferencing a NULL .label.
+	if (SelectedDrive.DeviceNumber == PHANTOM_DRIVE_INDEX) {
+		SetWindowTextU(hLabel, SelectedDrive.proposed_label);
+		return;
+	}
+
 	// Else if no existing label is available, propose one according to the size (eg: "256MB", "8GB")
-	if ((_stricmp(no_label, rufus_drive[ComboIndex].label) == 0) || (_stricmp(no_label, empty) == 0)
+	if ((safe_stricmp(no_label, rufus_drive[ComboIndex].label) == 0) || (_stricmp(no_label, empty) == 0)
 		|| (safe_stricmp(lmprintf(MSG_207), rufus_drive[ComboIndex].label) == 0)) {
 		SetWindowTextU(hLabel, SelectedDrive.proposed_label);
 	} else {
@@ -932,17 +939,29 @@ static BOOL PopulateProperties(void)
 	static_sprintf(SelectedDrive.proposed_label, "%s",
 		SizeToHumanReadable(SelectedDrive.DiskSize, FALSE, TRUE));
 
-	// Add a tooltip (with the size of the device in parenthesis)
-	device_tooltip = (char*) malloc(safe_strlen(rufus_drive[device_index].name) + 32);
-	if (device_tooltip != NULL) {
-		if (right_to_left_mode)
-			safe_sprintf(device_tooltip, safe_strlen(rufus_drive[device_index].name) + 32, "(%s) %s",
-				SizeToHumanReadable(SelectedDrive.DiskSize, FALSE, FALSE), rufus_drive[device_index].name);
-		else
-			safe_sprintf(device_tooltip, safe_strlen(rufus_drive[device_index].name) + 32, "%s (%s)",
-				rufus_drive[device_index].name, SizeToHumanReadable(SelectedDrive.DiskSize, FALSE, FALSE));
-		CreateTooltip(hDeviceList, device_tooltip, -1);
-		free(device_tooltip);
+	// QuickStick: the phantom test device has no entry in the rufus_drive[]
+	// array, so skip the tooltip composition that would otherwise read a
+	// NULL .name field (and crash _snprintf_s on '%s' with NULL).
+	if (SelectedDrive.DeviceNumber == PHANTOM_DRIVE_INDEX) {
+		CreateTooltip(hDeviceList,
+			"QuickStick phantom drive \xE2\x80\x94 used for UI testing only. No disk is written.", -1);
+	} else {
+		// Add a tooltip (with the size of the device in parenthesis)
+		const char* drive_name = rufus_drive[device_index].name;
+		size_t tt_size = safe_strlen(drive_name) + 32;
+		device_tooltip = (char*) malloc(tt_size);
+		if (device_tooltip != NULL) {
+			if (right_to_left_mode)
+				safe_sprintf(device_tooltip, tt_size, "(%s) %s",
+					SizeToHumanReadable(SelectedDrive.DiskSize, FALSE, FALSE),
+					(drive_name != NULL) ? drive_name : "");
+			else
+				safe_sprintf(device_tooltip, tt_size, "%s (%s)",
+					(drive_name != NULL) ? drive_name : "",
+					SizeToHumanReadable(SelectedDrive.DiskSize, FALSE, FALSE));
+			CreateTooltip(hDeviceList, device_tooltip, -1);
+			free(device_tooltip);
+		}
 	}
 
 out:
