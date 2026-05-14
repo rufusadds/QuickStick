@@ -2133,9 +2133,9 @@ static void InitDialog(HWND hDlg)
 	for (i = 0; (i < 3) && ((token = strtok(NULL, ".")) != NULL); i++)
 		rufus_version[i] = (uint16_t)atoi(token);
 
-	// Redefine the title to be able to add "Alpha" or "Beta"
-	static_sprintf(tmp, APPLICATION_NAME " %d.%d.%d%s%s", rufus_version[0], rufus_version[1], rufus_version[2],
-		IsAlphaOrBeta(), (ini_file != NULL)?"(Portable)":"");
+	// QuickStick is a single-version preview build; ignore the numeric build/version metadata for display.
+	(void)rufus_version;
+	static_sprintf(tmp, APPLICATION_NAME "-preview%s", (ini_file != NULL) ? " (Portable)" : "");
 	SetWindowTextU(hDlg, tmp);
 	// Now that we have a title, we can find the handle of our Dialog
 	dialog_handle = FindWindowA(NULL, tmp);
