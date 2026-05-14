@@ -44,7 +44,7 @@
  */
 //#define RUFUS_TEST
 
-#define APPLICATION_NAME            "Rufus"
+#define APPLICATION_NAME            "QuickStick"
 #if defined(_M_AMD64)
 #define APPLICATION_ARCH            "x64"
 #elif defined(_M_IX86)
@@ -56,7 +56,7 @@
 #else
 #define APPLICATION_ARCH            "(Unknown Arch)"
 #endif
-#define COMPANY_NAME                "Akeo Consulting"
+#define COMPANY_NAME                "QuickStick Project"
 #define STR_NO_LABEL                "NO_LABEL"
 #define LEFT_TO_RIGHT_MARK          "\u200e"
 #define RIGHT_TO_LEFT_MARK          "\u200f"
@@ -122,7 +122,7 @@
 #if defined(RUFUS_TEST)
 #define RUFUS_URL                   "http://nas/~rufus"
 #else
-#define RUFUS_URL                   "https://rufus.ie"
+#define RUFUS_URL                   "https://github.com/rufusadds/QuickStick"
 #endif
 #define DOWNLOAD_URL                RUFUS_URL "/downloads"
 #define FILES_URL                   RUFUS_URL "/files"

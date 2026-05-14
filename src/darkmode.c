@@ -84,18 +84,17 @@ BOOL GetDarkModeFromRegistry(void)
 	if (!IsAtLeastWin10() || IsHighContrast())
 		return FALSE;
 
-	// 0 = follow system, 1 = dark mode always, anything else = light mode always
+	// 0 = default (QuickStick neon theme always on), 1 = dark mode always, anything else = light mode always
 	switch (ReadSetting32(SETTING_DARK_MODE)) {
-	case 0:
-		if (RegGetValueA(HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
-			"AppsUseLightTheme", RRF_RT_REG_DWORD, NULL, &data, &size) == ERROR_SUCCESS)
-			// Dark mode is 0, light mode is 1
-			return (data == 0);
-		return FALSE;
 	case 1:
 		return TRUE;
-	default:
+	case 2:
+		// User explicitly toggled to light mode
 		return FALSE;
+	default:
+		// Default: QuickStick neon-green-on-black theme is always on
+		(void)data; (void)size;
+		return TRUE;
 	}
 }
 
