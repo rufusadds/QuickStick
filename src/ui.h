@@ -36,15 +36,17 @@
 // Toolbar icons main color
 #define TOOLBAR_ICON_COLOR							RGB(0x29, 0x80, 0xB9)
 
-// Dark Mode Colors - QuickStick neon green on black theme
-#define DARKMODE_TOOLBAR_ICON_COLOR					RGB(0x39, 0xFF, 0x14)
-#define DARKMODE_NORMAL_TEXT_COLOR					RGB(0xC8, 0xFF, 0xC8)
-#define DARKMODE_DISABLED_TEXT_COLOR				RGB(0x4F, 0x6F, 0x4F)
-#define DARKMODE_NORMAL_DIALOG_BACKGROUND_COLOR		RGB(0x00, 0x00, 0x00)
-#define DARKMODE_NORMAL_CONTROL_BACKGROUND_COLOR	RGB(0x0A, 0x12, 0x0A)
-#define DARKMODE_HOT_CONTROL_BACKGROUND_COLOR		RGB(0x14, 0x28, 0x14)
-#define DARKMODE_NORMAL_CONTROL_EDGE_COLOR			RGB(0x1F, 0x66, 0x1F)
-#define DARKMODE_HOT_CONTROL_EDGE_COLOR				RGB(0x39, 0xFF, 0x14)
+// QuickStick Theme Colors - clean modern light palette with electric blue accent.
+// (Macro names retained from the original Rufus dark-mode infrastructure; values
+// here are LIGHT-theme values and applied by the same painting subclasses.)
+#define DARKMODE_TOOLBAR_ICON_COLOR					RGB(0x00, 0x66, 0xFF)   // electric blue accent
+#define DARKMODE_NORMAL_TEXT_COLOR					RGB(0x1A, 0x1A, 0x1A)   // near-black text
+#define DARKMODE_DISABLED_TEXT_COLOR				RGB(0x8E, 0x8E, 0x93)   // system gray
+#define DARKMODE_NORMAL_DIALOG_BACKGROUND_COLOR		RGB(0xFF, 0xFF, 0xFF)   // pure white dialog
+#define DARKMODE_NORMAL_CONTROL_BACKGROUND_COLOR	RGB(0xFA, 0xFA, 0xFA)   // off-white control
+#define DARKMODE_HOT_CONTROL_BACKGROUND_COLOR		RGB(0xF0, 0xF0, 0xF0)   // slightly darker hover
+#define DARKMODE_NORMAL_CONTROL_EDGE_COLOR			RGB(0xE0, 0xE0, 0xE0)   // hairline border
+#define DARKMODE_HOT_CONTROL_EDGE_COLOR				RGB(0x00, 0x66, 0xFF)   // accent on focus/hover
 
 // Toolbar default style
 #define TOOLBAR_STYLE						( WS_CHILD | WS_TABSTOP | WS_VISIBLE | \

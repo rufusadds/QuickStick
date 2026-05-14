@@ -107,8 +107,11 @@ void InitDarkMode(HWND hWnd)
 	PF_INIT_ID_OR_OUT(SetPreferredAppMode, UxTheme, 135);
 	PF_INIT_ID_OR_OUT(FlushMenuThemes, UxTheme, 136);
 
-	pfAllowDarkModeForWindow(hWnd, is_darkmode_enabled);
-	pfSetPreferredAppMode(is_darkmode_enabled ? AppModeForceDark : AppModeForceLight);
+	// QuickStick: keep the "dark mode" subclass infrastructure active so our
+	// custom paint runs, but force Windows to render the LIGHT theme for any
+	// controls we don't fully repaint (combos, scrollbars, menu themes, etc.).
+	pfAllowDarkModeForWindow(hWnd, FALSE);
+	pfSetPreferredAppMode(AppModeForceLight);
 	pfFlushMenuThemes();
 	return;
 
@@ -118,19 +121,25 @@ out:
 
 void SetDarkTitleBar(HWND hWnd)
 {
+	// QuickStick uses a LIGHT title bar even though the rest of the
+	// "dark mode" subclass infrastructure is active to apply our custom
+	// light palette to controls. We explicitly pass FALSE here so Windows
+	// renders the standard light title bar / minimise / maximise / close.
+	BOOL use_dark_titlebar = FALSE;
+
 	if (IsAtLeastWin11()) {
-		DwmSetWindowAttribute(hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &is_darkmode_enabled, sizeof(is_darkmode_enabled));
+		DwmSetWindowAttribute(hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &use_dark_titlebar, sizeof(use_dark_titlebar));
 		return;
 	}
 	if (IsAtLeastWin10Build(WIN10_1903)) {
 		PF_INIT_OR_OUT(SetWindowCompositionAttribute, user32);
-		WINDOWCOMPOSITIONATTRIBDATA data = { WCA_USEDARKMODECOLORS, &is_darkmode_enabled, sizeof(is_darkmode_enabled) };
+		WINDOWCOMPOSITIONATTRIBDATA data = { WCA_USEDARKMODECOLORS, &use_dark_titlebar, sizeof(use_dark_titlebar) };
 		pfSetWindowCompositionAttribute(hWnd, &data);
 		return;
 	}
 	// only for Windows 10 1809 build 17763
 	if (IsAtLeastWin10()) {
-		SetPropW(hWnd, L"UseImmersiveDarkModeColors", (HANDLE)(intptr_t)is_darkmode_enabled);
+		SetPropW(hWnd, L"UseImmersiveDarkModeColors", (HANDLE)(intptr_t)use_dark_titlebar);
 		return;
 	}
 
@@ -140,7 +149,9 @@ out:
 
 void SetDarkTheme(HWND hWnd)
 {
-	SetWindowTheme(hWnd, is_darkmode_enabled ? L"DarkMode_Explorer" : NULL, NULL);
+	// QuickStick: always use the light Explorer theme (NULL = default).
+	(void)hWnd;
+	SetWindowTheme(hWnd, NULL, NULL);
 }
 
 /*
@@ -301,14 +312,14 @@ static HBRUSH GetEdgeBrush(void)
 static HPEN GetEdgePen(void)
 {
 	if (theme_resources.hpnEdge == NULL)
-		// QuickStick: thicker neon border for stronger glow effect
-		theme_resources.hpnEdge = CreatePen(PS_SOLID, 2, DARKMODE_NORMAL_CONTROL_EDGE_COLOR);
+		// QuickStick: clean 1px hairline border
+		theme_resources.hpnEdge = CreatePen(PS_SOLID, 1, DARKMODE_NORMAL_CONTROL_EDGE_COLOR);
 	return theme_resources.hpnEdge;
 }
 static HPEN GetHotEdgePen(void)
 {
 	if (theme_resources.hpnEdgeHot == NULL)
-		// QuickStick: thicker neon border on hover
+		// QuickStick: 2px accent-coloured border on hover/focus
 		theme_resources.hpnEdgeHot = CreatePen(PS_SOLID, 2, DARKMODE_HOT_CONTROL_EDGE_COLOR);
 	return theme_resources.hpnEdgeHot;
 }
@@ -926,9 +937,6 @@ static void PaintProgressBar(HWND hWnd, HDC hdc, ProgressBarData progressBarData
 	RECT rcClient = { 0 }, rcFill = { 0 };
 	HBRUSH hbrFill;
 	COLORREF fill_color;
-	HPEN hpnScan, hpnOld;
-	int y;
-	(void)progressBarData;
 
 	GetClientRect(hWnd, &rcClient);
 	PaintRoundFrameRect(hdc, rcClient, GetEdgePen(), 0, 0);
@@ -936,34 +944,24 @@ static void PaintProgressBar(HWND hWnd, HDC hdc, ProgressBarData progressBarData
 	rcClient.left = 1;
 	GetProgressBarRects(hWnd, &rcClient, &rcFill);
 
-	// QuickStick neon progress fill. Use the Windows theme state to pick a tone:
-	//   PBFS_NORMAL  -> neon green   (#39FF14)
-	//   PBFS_ERROR   -> neon red     (#FF1430)
-	//   PBFS_PAUSED  -> neon amber   (#FFB400)
+	// QuickStick clean progress fill. Map Windows progress state to our palette:
+	//   PBFS_NORMAL  -> electric blue (#0066FF, the accent)
+	//   PBFS_ERROR   -> red           (#D32F2F)
+	//   PBFS_PAUSED  -> amber         (#F57C00)
 	switch (progressBarData.iStateID) {
 	case PBFS_ERROR:
-		fill_color = RGB(0xFF, 0x14, 0x30);
+		fill_color = RGB(0xD3, 0x2F, 0x2F);
 		break;
 	case PBFS_PAUSED:
-		fill_color = RGB(0xFF, 0xB4, 0x00);
+		fill_color = RGB(0xF5, 0x7C, 0x00);
 		break;
 	default:
-		fill_color = DARKMODE_TOOLBAR_ICON_COLOR; // neon green
+		fill_color = DARKMODE_TOOLBAR_ICON_COLOR; // electric blue
 		break;
 	}
 	hbrFill = CreateSolidBrush(fill_color);
 	FillRect(hdc, &rcFill, hbrFill);
 	DeleteObject(hbrFill);
-
-	// Overlay horizontal scanlines on the filled section for a CRT/neon feel.
-	hpnScan = CreatePen(PS_SOLID, 1, RGB(0x00, 0x00, 0x00));
-	hpnOld = (HPEN)SelectObject(hdc, hpnScan);
-	for (y = rcFill.top + 1; y < rcFill.bottom; y += 2) {
-		MoveToEx(hdc, rcFill.left, y, NULL);
-		LineTo(hdc, rcFill.right, y);
-	}
-	SelectObject(hdc, hpnOld);
-	DeleteObject(hpnScan);
 
 	// Unfilled portion stays the dialog/control background colour.
 	FillRect(hdc, &rcClient, GetCtrlBackgroundBrush());
