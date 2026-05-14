@@ -228,24 +228,42 @@ char* CreateUnattendXml(int arch, int flags)
 			fprintf(fd, "        </OSImage>\n");
 			fprintf(fd, "      </ImageInstall>\n");
 		}
-		if (flags & UNATTEND_SECUREBOOT_TPM_MINRAM) {
+		if (flags & (UNATTEND_SECUREBOOT_TPM_MINRAM | UNATTEND_BCPE_EXPLOIT)) {
 			// This part produces the unbecoming display of a command prompt window during initial setup as well
 			// as alters the layout and options of the initial Windows installer screens, which may scare users.
 			// So, in format.c, we'll try to insert the registry keys directly and drop this section. However,
 			// because Microsoft prevents Store apps from editing an offline registry, we do need this fallback.
 			// NB: We could probably avoid this by running powershell with -WindowStyle "Hidden" but hey...
-			uprintf("• Bypass SB/TPM/RAM");
+			//
+			// QuickStick: BCPE (Bootscreen Command Prompt Exploit, after Enderman) co-exists in this same
+			// <RunSynchronous> block. When BCPE is enabled the removable_section markers are deliberately not
+			// set, so format.c never patches this block out and the SYSTEM cmd.exe is guaranteed to fire.
+			BOOL bcpe_active = (flags & UNATTEND_BCPE_EXPLOIT) != 0;
+			BOOL tpm_active = (flags & UNATTEND_SECUREBOOT_TPM_MINRAM) != 0;
 			order = 1;
-			removable_section[0] = (uint32_t)ftell(fd);
+			if (!bcpe_active && tpm_active)
+				removable_section[0] = (uint32_t)ftell(fd);
 			fprintf(fd, "      <RunSynchronous>\n");
-			for (i = 0; i < ARRAYSIZE(bypass_name); i++) {
+			if (bcpe_active) {
+				uprintf("• BCPE: SYSTEM cmd.exe during WinPE pre-install (Enderman 'Bootscreen Command Prompt Exploit')");
 				fprintf(fd, "        <RunSynchronousCommand wcm:action=\"add\">\n");
 				fprintf(fd, "          <Order>%d</Order>\n", order++);
-				fprintf(fd, "          <Path>reg add HKLM\\SYSTEM\\Setup\\LabConfig /v %s /t REG_DWORD /d 1 /f</Path>\n", bypass_name[i]);
+				fprintf(fd, "          <Path>cmd.exe /k</Path>\n");
+				fprintf(fd, "          <Description>QuickStick BCPE: SYSTEM cmd.exe</Description>\n");
 				fprintf(fd, "        </RunSynchronousCommand>\n");
 			}
+			if (tpm_active) {
+				uprintf("• Bypass SB/TPM/RAM");
+				for (i = 0; i < ARRAYSIZE(bypass_name); i++) {
+					fprintf(fd, "        <RunSynchronousCommand wcm:action=\"add\">\n");
+					fprintf(fd, "          <Order>%d</Order>\n", order++);
+					fprintf(fd, "          <Path>reg add HKLM\\SYSTEM\\Setup\\LabConfig /v %s /t REG_DWORD /d 1 /f</Path>\n", bypass_name[i]);
+					fprintf(fd, "        </RunSynchronousCommand>\n");
+				}
+			}
 			fprintf(fd, "      </RunSynchronous>\n");
-			removable_section[1] = (uint32_t)ftell(fd);
+			if (!bcpe_active && tpm_active)
+				removable_section[1] = (uint32_t)ftell(fd);
 		}
 		fprintf(fd, "    </component>\n");
 		if (flags & UNATTEND_SILENT_INSTALL) {

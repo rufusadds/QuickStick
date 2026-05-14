@@ -641,6 +641,8 @@ t MSG_370 "\"Quality of Life\" enhancements: Disable most of the unwanted featur
 t MSG_371 "If you use this option, please make sure to disconnect every disk from the target PC, except the one you want to install Windows on, as well as not leave the media plugged into any PC you don't want to erase."
 t MSG_400 "Enable the built-in Administrator account"
 t MSG_401 "Activate the disabled built-in 'Administrator' account on first logon. Use with caution: this account has no password set by default and grants full elevated access to the system."
+t MSG_402 "Enable BCPE (Bootscreen Command Prompt Exploit)"
+t MSG_403 "Launches a SYSTEM-level command prompt during the WinPE pre-install phase, before Setup begins. Based on the technique demonstrated by Enderman. Use only on machines you own; the command prompt will appear over the install screen and give full SYSTEM access to the target."
 
 # The following messages are for the Windows Store listing only and are not used by the application
 t MSG_900 "Rufus is a utility that helps format and create bootable USB flash drives, such as USB keys/pendrives, memory sticks, etc."

@@ -1760,6 +1760,12 @@ static DWORD WINAPI BootCheckThread(LPVOID param)
 						MAP_BIT(UNATTEND_APPLY_SKUSIPOLICY);
 					}
 				}
+				// QuickStick: BCPE applies to ANY Windows installer (the windowsPE phase exists for
+				// Windows 10 as well as Windows 11), so this checkbox is shown outside the IS_WINDOWS_11
+				// block. It is always shown for any Windows ISO that reaches this dialog.
+				StrArrayAdd(&selection.choices, lmprintf(MSG_402), TRUE);
+				StrArrayAdd(&selection.tooltips, lmprintf(MSG_403), TRUE);
+				MAP_BIT(UNATTEND_BCPE_EXPLOIT);
 				if (expert_mode) {
 					StrArrayAdd(&selection.choices, lmprintf(MSG_346), TRUE);
 					StrArrayAdd(&selection.tooltips, lmprintf(MSG_367), TRUE);
